@@ -1,0 +1,41 @@
+Fuse-subs presents a filesystem where textual subtitles embedded in video
+files are presented as files with the name of the video file and extension
+of the subtitle format.  This is useful for media servers which expect the
+subs for a movie to be presented this way.
+
+* Currently only matroska format is supported.
+
+Requires:
+ * python-fuse
+ * mkvtoolnix
+ * sqlite3dbm (optional)
+
+Usage:
+  subtitlefs.py -o root=/media/path/to/movies/dir -s -f /mount/point
+
+KNOWN ISSUES:
+ * Currently directory traversal is very slow. Paths must be stat'ed in
+   order to determine their type (file or directory).  Since stat must
+   return the file size, we must extract the subtitle to get its size.
+   An improvement might be to have a background thread creating a cache
+   of these subtitles.
+ * Currently subtitle files are read with direct_io, bypassing the fs cache
+   because going through the fs cache is causing an EIO error after a
+   couple consecutive reads. If each read is preceded by a seek, then the
+   EIO never shows up.  It seems like its always the last read which fails.
+   Is this a bug in fuse?
+   * This might be related to fuse/kernel not knowing the file size:
+     http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FAQ#I_can_not_know_the_file_size_in_advance.2C_how_do_I_force_EOF_from_fs_read.28.29_to_be_seen_in_the_application.3F
+
+TODO:
+ * Support more subtitle formats
+ * Support other video formats with subtitles
+ * Natively read matroska (instead of using mkvtoolnix)
+ * use inotify to be aware of when file path changes
+ * Implement caching of subtitles with mapping back to file path
+   * keep hueristic identifier of file, to determine when the contents
+     change. Maybe just subtitle track uid. Right now using mtime of video
+     file.
+ * Do error handling and validation on language arg. Allow for ISO639-1 and
+   ISO639-2 codes.
+ * Add tests
