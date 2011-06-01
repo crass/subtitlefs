@@ -61,7 +61,7 @@ fuse.fuse_python_api = (0, 2)
 SUBTITLE_EXTS = ('srt', 'sub', 'idx', 'ssa', 'ass',)
 #~ VIDEO_EXTS = ('mkv', 'avi',)
 VIDEO_EXTS = ('mkv',) # only mkv supported
-SUPPORTED_SUBS = ('srt',)
+SUPPORTED_SUBS = ('srt', 'ssa', 'ass',)
 
 TEMP_NAME = 'tmp'
 CACHEDB_NAME = 'subtitlesfs.db'
@@ -94,6 +94,8 @@ class MkvFile(object):
     comma_split = re.compile(r"\s*,\s*(?![^\(]+?\))")
     SUBEXT_MIME_MAP = {
         'srt': 'S_TEXT/UTF8',
+        'ssa': 'S_TEXT/SSA',
+        'ass': 'S_TEXT/ASS',
         'sub': 'S_VOBSUB',
     }
     SUBMIME_EXT_MAP = dict([i[::-1] for i in SUBEXT_MIME_MAP.items()])
@@ -102,7 +104,7 @@ class MkvFile(object):
         self.path = path
         self.logger = logging.getLogger('mkvfile')
     
-    def info(self):
+    def info(self, ignore_errors=True):
         mkv_path = self.path
         cmd = ('mkvinfo', '-s')
         self._info = info = []
@@ -125,13 +127,21 @@ class MkvFile(object):
         else:
             raise RuntimeError('Unsupported version of python')
         
-        for line in genlines(stdout):
+        for tnum, line in enumerate(genlines(stdout)):
             line = line.rstrip()
             if line.startswith("Track"):
-                tinfo = dict([i.split(': ', 1) for i in re.split(self.comma_split, line)])
-                tkey = line.split(':', 1)[0]
-                tinfo['type'] = tinfo.pop(tkey)
-                info.append(tinfo)
+                try:
+                    logging.debug('mkv.info: %r', re.split(self.comma_split, line))
+                    tinfo = dict([i.split(': ', 1) for i in re.split(self.comma_split, line)])
+                    tkey = line.split(':', 1)[0]
+                    tinfo['type'] = tinfo.pop(tkey)
+                    info.append(tinfo)
+                except Exception, e:
+                    if ignore_errors:
+                        logging.exception("Caught exception for track %s of %s:\n%r", tnum+1, mkv_path, line)
+                        continue
+                    else:
+                        raise
             else:
                 # The first non-Track line means no more tracks
                 break
@@ -219,6 +229,13 @@ class SubtitleExtractorThread(threading.Thread):
         #~ self.condition = condition
         
     def run(self):
+        try:
+            self._run()
+        except Exception, e:
+            self.logger.exception("Exception caught in extractor thread")
+            raise
+    
+    def _run(self):
         self.logger.info('running extractor thread: %s', self.root)
         while True:
             # continually scan root
@@ -248,7 +265,10 @@ class SubtitleExtractorThread(threading.Thread):
     
     def extract_subs(self, mkvpath):
         """ """
-        self.extract_and_cache_subs(mkvpath, self.lang, self.logger)
+        try:
+            self.extract_and_cache_subs(mkvpath, self.lang, self.logger)
+        except Exception, e:
+            logging.exception("Exception during extraction of subtitles from %s"%mkvpath)
     
     @staticmethod
     def extract_and_cache_subs(mkvpath, lang, logger=logging):
@@ -393,7 +413,7 @@ class SubtitleFileProxy(FileProxy):
                             prefix=os.path.join(CACHE_DIR, self.root.lstrip('/')))
             else:
                 #~ file = open(path, mode)
-                file = LoopbackFile(path, flags)
+                file = LoopbackFile(path, flags, prefix=self.root)
                 logging.debug('read in open: %r', file.read(10))
                 #~ file = fuse.FuseFileInfo(direct_io=True)
         except Exception, e:
@@ -520,7 +540,7 @@ class SubsFuse(fuse.Fuse):
             ext = ext[1:]
             if ext.lower() in VIDEO_EXTS:
                 mkv = MkvFile(os.path.join(abspath, e))
-                for trackinfo in mkv.info():
+                for trackinfo in mkv.info(ignore_errors=True):
                     if trackinfo['type'] == 'subtitles' \
                             and trackinfo['language'] == self.lang:
                         self.logger.debug('mkv track info: %s', trackinfo)
