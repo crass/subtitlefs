@@ -11,7 +11,10 @@ Requires:
  * sqlite3dbm (optional)
 
 Usage:
-  subtitlefs.py -o root=/media/path/to/movies/dir -s -f /mount/point
+  subtitlefs.py -o root=/media/path/to/movies/dir /mount/point
+
+Authors
+ * Glenn Washburn <crass@berlios.de>
 
 KNOWN ISSUES:
  * Currently directory traversal is very slow. Paths must be stat'ed in
