@@ -41,4 +41,11 @@ TODO:
      file.
  * Do error handling and validation on language arg. Allow for ISO639-1 and
    ISO639-2 codes.
+ * Add support for converting subtitle formats (eg. the file contains ssa,
+   but you want srt)
+ * Add option for multi-subtitle mode, where multiple subtitles can be
+   shown.  The idea is to present multiple video files, each which
+   correspond to a different subtitle (eg. a.mkv with 2 subs, would present
+   a.1.mkv a.1.srt a.2.mkv a.2.srt)
  * Add tests
+
