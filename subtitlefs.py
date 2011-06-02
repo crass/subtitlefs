@@ -573,11 +573,11 @@ def main():
     #~ server.multithreaded = False
     
     server.parser.add_option(mountopt='root', metavar="PATH", default='/',
-                             help="mirror filesystem from under PATH [default: %default]")
+                             help="show subtitles in videos under PATH [default: %default]")
     server.parser.add_option(mountopt='lang', metavar="LANG", default='eng',
-                             help="Show subtitles with language LANG [default: %default]")
-    server.parser.add_option(mountopt='numthreads', metavar='NUM', default=1,
-                             help="set number of threads [default: %default]")
+                             help="show subtitles with language LANG [default: %default]")
+    #~ server.parser.add_option(mountopt='numthreads', metavar='NUM', default=1,
+                             #~ help="set number of threads [default: %default]")
     #~ server.parser.add_option(mountopt='icase', default=False, action='store_true',
                              #~ help="set case insensitivity [default: %default]")
     server.parser.add_option(mountopt='use_cache_only', default=False, action='store_true',
