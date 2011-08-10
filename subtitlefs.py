@@ -127,16 +127,19 @@ class MkvFile(object):
         else:
             raise RuntimeError('Unsupported version of python')
         
+        kvdelim = re.compile(':\s*')
         for tnum, line in enumerate(genlines(stdout)):
             line = line.rstrip()
             if line.startswith("Track"):
                 try:
-                    logging.debug('mkv.info: %r', re.split(self.comma_split, line))
-                    tinfo = dict([i.split(': ', 1) for i in re.split(self.comma_split, line)])
-                    tkey = line.split(':', 1)[0]
-                    tinfo['type'] = tinfo.pop(tkey)
+                    kvpairs = [re.split(kvdelim, i, 1) for i in re.split(self.comma_split, line)]
+                    tinfo = dict(kvpairs)
+                    # The track type is always found as the value of the first pair
+                    tinfo['type'] = kvpairs[0][1]
                     info.append(tinfo)
                 except Exception, e:
+                    logging.error('mkv.info: %r', re.split(self.comma_split, line))
+                    logging.error('mkv.info: %r', [re.split(kvdelim, i, 1) for i in re.split(self.comma_split, line)])
                     if ignore_errors:
                         logging.exception("Caught exception for track %s of %s:\n%r", tnum+1, mkv_path, line)
                         continue
@@ -279,7 +282,7 @@ class SubtitleExtractorThread(threading.Thread):
             if trackinfo['type'] == 'subtitles' \
                     and trackinfo['language'] == lang:
                 logger.debug('mkv track info: %r', trackinfo)
-                subext = mkv.SUBMIME_EXT_MAP[trackinfo['codec ID']]
+                subext = mkv.SUBMIME_EXT_MAP.get(trackinfo['codec ID'], None)
                 if subext in SUPPORTED_SUBS:
                     fullpath = os.path.join(CACHE_DIR, '.'.join([basepath.lstrip('/'), subext]))
                     
@@ -404,7 +407,7 @@ class SubtitleFileProxy(FileProxy):
     fuse = None
     
     def multiplex(self, path, flags, *mode, **kwargs):
-        logging.error('proxy.multiplex: %s %s', path, flags)
+        logging.debug('proxy.multiplex: %s %s', path, flags)
         base, ext = os.path.splitext(path)
         ext = ext[1:]
         try:
@@ -542,7 +545,7 @@ class SubsFuse(fuse.Fuse):
                 mkv = MkvFile(os.path.join(abspath, e))
                 for trackinfo in mkv.info(ignore_errors=True):
                     if trackinfo['type'] == 'subtitles' \
-                            and trackinfo['language'] == self.lang:
+                            and trackinfo.get('language', None) == self.lang:
                         self.logger.debug('mkv track info: %s', trackinfo)
                         subext = mkv.SUBMIME_EXT_MAP[trackinfo['codec ID']]
                         if subext in SUPPORTED_SUBS:
