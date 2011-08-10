@@ -1,4 +1,4 @@
-Fuse-subs presents a filesystem where textual subtitles embedded in video
+Subtitlefs presents a filesystem where textual subtitles embedded in video
 files are presented as files with the name of the video file and extension
 of the subtitle format.  This is useful for media servers which expect the
 subs for a movie to be presented this way.
