@@ -51,13 +51,14 @@ from fuseutils import FileProxy, FuseFile, LoopbackFile, Stat
 
 _fuse_main = fuse.main
 def fuse_main(**kwargs):
-    logging.debug('%s', kwargs)
+    logging.debug('%s, %s', sorted(kwargs.keys()), kwargs)
     return _fuse_main(**kwargs)
 fuse.main = fuse_main
 
 
 fuse.fuse_python_api = (0, 2)
 
+DEFAULT_LANG = 'eng'
 SUBTITLE_EXTS = ('srt', 'sub', 'idx', 'ssa', 'ass',)
 #~ VIDEO_EXTS = ('mkv', 'avi',)
 VIDEO_EXTS = ('mkv',) # only mkv supported
@@ -159,7 +160,7 @@ class MkvFile(object):
         for i, trackinfo in enumerate(info):
             if trackinfo['type'] == 'subtitles' \
                     and trackinfo['codec ID'] == self.SUBEXT_MIME_MAP.get(stype, None) \
-                    and trackinfo['language'] == lang:
+                    and trackinfo.get('language', DEFAULT_LANG) == lang:
                 return i+1
         return 0
     
@@ -280,7 +281,7 @@ class SubtitleExtractorThread(threading.Thread):
         mkv = MkvFile(mkvpath)
         for tnum, trackinfo in enumerate(mkv.info()):
             if trackinfo['type'] == 'subtitles' \
-                    and trackinfo.get('language', 'eng') == lang:
+                    and trackinfo.get('language', DEFAULT_LANG) == lang:
                 logger.debug('mkv track info: %r', trackinfo)
                 subext = mkv.SUBMIME_EXT_MAP.get(trackinfo['codec ID'], None)
                 if subext in SUPPORTED_SUBS:
@@ -546,13 +547,17 @@ class SubsFuse(fuse.Fuse):
                 mkv = MkvFile(os.path.join(abspath, e))
                 for trackinfo in mkv.info(ignore_errors=True):
                     if trackinfo['type'] == 'subtitles' \
-                            and trackinfo.get('language', None) == self.lang:
+                            and trackinfo.get('language', DEFAULT_LANG) == self.lang:
                         self.logger.debug('mkv track info: %s', trackinfo)
                         subext = mkv.SUBMIME_EXT_MAP[trackinfo['codec ID']]
                         if subext in SUPPORTED_SUBS:
                             yield fuse.Direntry('.'.join([basename, subext]))
                             #~ yield fuse.Direntry('.'.join([basename, subext]), type=stat.S_IFREG)
-    
+
+    def readlink(self, path):
+        abspath = os.path.join(self.root, path.lstrip('/'))
+        return os.readlink(abspath)
+
     def mknod(self, path, mode, dev):
         self.logger.info("mknod: %s %s %s", path, mode, dev)
         return -errno.EROFS
