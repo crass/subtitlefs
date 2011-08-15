@@ -280,7 +280,7 @@ class SubtitleExtractorThread(threading.Thread):
         mkv = MkvFile(mkvpath)
         for tnum, trackinfo in enumerate(mkv.info()):
             if trackinfo['type'] == 'subtitles' \
-                    and trackinfo['language'] == lang:
+                    and trackinfo.get('language', 'eng') == lang:
                 logger.debug('mkv track info: %r', trackinfo)
                 subext = mkv.SUBMIME_EXT_MAP.get(trackinfo['codec ID'], None)
                 if subext in SUPPORTED_SUBS:
@@ -430,6 +430,7 @@ class SubsFuse(fuse.Fuse):
     def __init__(self, *args, **kw):
         fuse.Fuse.__init__(self, *args, **kw)
         
+        # Set defaults value, which can be overridden by commandline opts.
         self.root = '/'
         self.lang = 'eng'
         self.log = self.loglevel = self.cachedir = None
